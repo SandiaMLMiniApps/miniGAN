@@ -5,20 +5,11 @@ import os
 import argparse
 import matplotlib.pylab as plt
 
+# Num pixels in X/Y dim for bird stamp
 bird_dim_x = 23
 bird_dim_y = 20
+# Magnitude of stamp
 bird_weight = 10.0
-
-
-
-
-
-size_x = 64;
-#size_x = 4096;
-size_y = size_x;
-
-channels_last = False
-
 
 parser = argparse.ArgumentParser(description="Generate Sandia Bird Dataset")
 
@@ -83,7 +74,6 @@ else:
 if (size_x <= bird_dim_x or size_y <= bird_dim_y):
     print("Error: size of images too small to create.")
     exit(0);
-
 
 
 
@@ -262,6 +252,7 @@ def create_bird_stamp(rez):
 #    plt.show()
 
     return bird_stamp
+
 
 if __name__ == "__main__":
     main()
