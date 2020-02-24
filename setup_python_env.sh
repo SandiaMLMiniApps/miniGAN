@@ -13,6 +13,7 @@ source minigan_torch_env/bin/activate
 
 ${PIP} install numpy 
 ${PIP} install torch
+${PIP} install torchvision
 ${PIP} install horovod
 ${PIP} install tensorboard
 ${PIP} install matplotlib==3.0.0
