@@ -56,8 +56,13 @@ To Install:
 ### OLCF Summit instructions
 
 1. Do not run `setup_python_env.sh`, instead run `module load ibm-wml-ce/1.6.2-0` to load IBM's Watson ML Community Edition.
-2. This should contain PyTorch, Horovod, Matplotlib 
-3. Have not been successful with Summit's standalone pip / anaconda
+    + This should contain PyTorch, Horovod, Matplotlib 
+    + Have not been successful with Summit's standalone pip / anaconda
+2. Obtain an interactive session using
+    + `bsub --nnodes 1 -Is -W 1:00 -P <ProjID> /bin/bash`
+3. Run using 
+    + `ddlrun python3 minigan_driver.py --dataset bird`
+
 
 ### Experimental! 
 #### Make use of kokkos-kernels layers/operations
