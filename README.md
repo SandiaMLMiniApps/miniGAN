@@ -55,7 +55,7 @@ To Install:
 
 ### OLCF Summit instructions
 
-1. Do not run `setup_python_env.sh`, instead run `module load ibm-wml-ce/1.6.2-0` to load IBM's Watson ML Community Edition.
+1. Do not run `setup_python_env.sh`, instead run `module load ibm-wml-ce/1.7.0-1` to load IBM's Watson ML Community Edition.
     + This should contain PyTorch, Horovod, Matplotlib 
     + Have not been successful with Summit's standalone pip / anaconda
 2. Obtain an interactive session using
