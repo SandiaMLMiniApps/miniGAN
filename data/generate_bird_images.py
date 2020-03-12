@@ -44,12 +44,12 @@ if (args.dim_mode == 2):
                                 str(size_y) + 'px_' + \
                                 str(args.num_channels) + 'chnls'
     # Pytorch Default
-    else: 
+    else:
         filename = args.output_dir + '/minigan_bird_' + \
                                 str(args.num_images) + 'imgs_' + \
                                 str(args.num_channels) + 'chnls_' + \
                                 str(size_x) + 'x' + \
-                                str(size_y) + 'px' 
+                                str(size_y) + 'px'
 
 elif (args.dim_mode == 3):
     if (args.channels_last):
@@ -60,13 +60,13 @@ elif (args.dim_mode == 3):
                                 str(size_z) + 'px_' + \
                                 str(args.num_channels) + 'chnls'
     # Pytorch Default
-    else: 
+    else:
         filename = args.output_dir + '/minigan_bird_' + \
                                 str(args.num_images) + 'imgs_' + \
                                 str(args.num_channels) + 'chnls_' + \
                                 str(size_x) + 'x' + \
                                 str(size_y) + 'x' + \
-                                str(size_z) + 'px' 
+                                str(size_z) + 'px'
 else:
     print("Error: dim mode must be 2 or 3.")
     exit(0);
@@ -81,23 +81,23 @@ if (size_x <= bird_dim_x or size_y <= bird_dim_y):
 def main():
 
     print('Creating %dD bird images at %s' % (args.dim_mode, filename))
-    
+
     rez = int(size_y / bird_dim_y / 5)
 
-    if rez < 1: 
+    if rez < 1:
         rez = 1
 
     bird_stamp = create_bird_stamp(rez)
 
     # Make random noise background for images
     if (args.dim_mode == 2):
-        if (channels_last):
+        if (args.channels_last):
             images = np.random.rand(args.num_images, size_x, size_y, args.num_channels)
         else:
             images = np.random.rand(args.num_images, args.num_channels, size_x, size_y)
 
     else:
-        if (channels_last):
+        if (args.channels_last):
             images = np.random.rand(args.num_images, size_x, size_y, size_z, args.num_channels)
         else:
             images = np.random.rand(args.num_images, args.num_channels, size_x, size_y, size_z)
@@ -116,7 +116,7 @@ def main():
         # Randomly position the Bird Stamp
         x_pos = np.random.randint(0,size_x - bird_stamp.shape[0])
         y_pos = np.random.randint(0,size_y - bird_stamp.shape[1])
-        
+
         x_fin = x_pos + bird_stamp.shape[0]
         y_fin = y_pos + bird_stamp.shape[1]
 
@@ -139,9 +139,9 @@ def main():
 
 #    plt.figure()
     f, axarr = plt.subplots(2,2)
-  
+
     if (args.dim_mode == 2):
-        if (channels_last):
+        if (args.channels_last):
             axarr[0,0].imshow(images[0,:,:,0])
             axarr[0,1].imshow(images[1,:,:,0])
             axarr[1,0].imshow(images[2,:,:,0])
@@ -153,7 +153,7 @@ def main():
             axarr[1,1].imshow(images[3,0,:,:])
 
     else:
-        if (channels_last):
+        if (args.channels_last):
             axarr[0,0].imshow(images[0,:,:,0,0])
             axarr[0,1].imshow(images[1,:,:,0,0])
             axarr[1,0].imshow(images[2,:,:,0,0])
@@ -165,9 +165,9 @@ def main():
             axarr[1,1].imshow(images[3,0,:,:,0])
 
 
-       
+
 #    plt.show()
-    
+
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
@@ -213,7 +213,7 @@ def create_bird_stamp(rez):
     bird_stamp[3*rez:-3*rez,  2*rez:3*rez] = 0
     bird_stamp[3*rez:-3*rez, -3*rez:-2*rez] = 0
 
-    # Top/Bottom Strip 
+    # Top/Bottom Strip
     bird_stamp[ 2*rez:3*rez,  3*rez:-3*rez] = 0
     bird_stamp[-3*rez:-2*rez, 3*rez:-3*rez] = 0
 

@@ -43,24 +43,19 @@ from __future__ import print_function, division
 
 import sys, os
 from os import path
-import logging
-import time, timeit
+import warnings
+import timeit
 
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
+import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-#from torchvision import datasets, transforms
-import torchvision.utils as vutils 
+import torchvision.utils as vutils
 import torch.utils.data.distributed
 import horovod.torch as hvd
 
-
-import torch.nn.parallel
-import torch.backends.cudnn as cudnn
-import torch.utils.data
 
 # New Pytorch CPP kk conv ops
 #kk_conv2d_module = tf.load_op_library('./build2/libkk_conv2d.so')
@@ -79,18 +74,20 @@ import torch.utils.data
 class Generator2d(nn.Module):
     def __init__(self, minigan_args):
         super(Generator2d, self).__init__()
-        
+
         self.args = minigan_args
         self.ngpu = self.args.num_gpus
-         
+
         self.gen2d = nn.Sequential()
 
         i_channels = self.args.gen_noise
         o_channels = self.args.gen_filters * (2 ** self.args.gen_layers)
 
         if (self.args.kk_mode):
-            print("\nRequested KokkosKernels mode, but it is currently unavailable. " \
-                    "Using default Pytorch layers.\n")
+
+            if (hvd.rank() == 0):
+                print("\nRequested KokkosKernels mode, but it is currently unavailable. " \
+                        "Using default Pytorch layers.\n")
             self.gen2d.add_module("kk_conv_trans_%d" % (0), \
                     nn.ConvTranspose2d( \
                     in_channels=i_channels, \
@@ -130,7 +127,7 @@ class Generator2d(nn.Module):
 
             i_channels = o_channels
             o_channels = i_channels // 2
- 
+
             # KK transposed convolutions (currently unavailable)
             if (self.args.kk_mode):
                 # 2d Transposed Convolution
@@ -171,10 +168,10 @@ class Generator2d(nn.Module):
             # Leaky ReLU activation
             self.gen2d.add_module("relu_%d" % (l+1), \
                     nn.ReLU(True))
-        
+
         # Last layer outputs num channels in dataset
         # args.gen_filters = o_channels after finshing for-loop
-        i_channels = self.args.gen_filters 
+        i_channels = self.args.gen_filters
         o_channels = self.args.num_channels
 
         if (self.args.kk_mode):
@@ -204,7 +201,7 @@ class Generator2d(nn.Module):
 
         self.gen2d.add_module("tanh", \
                 nn.Tanh())
-    
+
     def forward(self, input):
         return self.gen2d(input)
 
@@ -220,11 +217,12 @@ class Discriminator2d(nn.Module):
 
         i_channels = self.args.num_channels
         o_channels = self.args.disc_filters
- 
+
         # KK convolutions (currently unavailable)
         if (self.args.kk_mode):
-            print("\nRequested KokkosKernels mode, but it is currently unavailable. ", \
-                    "Using default Pytorch layers.\n")
+            if (hvd.rank() == 0):
+                print("\nRequested KokkosKernels mode, but it is currently unavailable. ", \
+                        "Using default Pytorch layers.\n")
             # 2d Convolution
             self.disc2d.add_module("kk_conv_%d" % (0), \
                     nn.Conv2d( \
@@ -331,7 +329,7 @@ class Discriminator2d(nn.Module):
                     bias=False))
 
         self.disc2d.add_module("sigmoid", \
-                nn.Sigmoid())   
+                nn.Sigmoid())
 
     def forward(self, input):
         return self.disc2d(input)
@@ -340,18 +338,19 @@ class Discriminator2d(nn.Module):
 class Generator3d(nn.Module):
     def __init__(self, minigan_args):
         super(Generator3d, self).__init__()
-        
+
         self.args = minigan_args
         self.ngpu = self.args.num_gpus
-         
+
         self.gen3d = nn.Sequential()
 
         i_channels = self.args.gen_noise
         o_channels = self.args.gen_filters * (2 ** self.args.gen_layers)
 
         if (self.args.kk_mode):
-            print("\nRequested KokkosKernels mode, but it is currently unavailable. ", \
-                    "Using default Pytorch layers.\n")
+            if (hvd.rank() == 0):
+                print("\nRequested KokkosKernels mode, but it is currently unavailable. ", \
+                        "Using default Pytorch layers.\n")
             self.gen3d.add_module("kk_conv_trans_%d" % (0), \
                     nn.ConvTranspose3d( \
                     in_channels=i_channels, \
@@ -391,7 +390,7 @@ class Generator3d(nn.Module):
 
             i_channels = o_channels
             o_channels = i_channels // 2
- 
+
             # KK transposed convolutions (currently unavailable)
             if (self.args.kk_mode):
                 # 3d Transposed Convolution
@@ -432,10 +431,10 @@ class Generator3d(nn.Module):
             # Leaky ReLU activation
             self.gen3d.add_module("relu_%d" % (l+1), \
                     nn.ReLU(True))
-        
+
         # Last layer outputs num channels in dataset
         # args.gen_filters = o_channels after finshing for-loop
-        i_channels = self.args.gen_filters 
+        i_channels = self.args.gen_filters
         o_channels = self.args.num_channels
 
         if (self.args.kk_mode):
@@ -465,7 +464,7 @@ class Generator3d(nn.Module):
 
         self.gen3d.add_module("tanh", \
                 nn.Tanh())
-    
+
     def forward(self, input):
         return self.gen3d(input)
 
@@ -481,11 +480,12 @@ class Discriminator3d(nn.Module):
 
         i_channels = self.args.num_channels
         o_channels = self.args.disc_filters
- 
+
         # KK convolutions (currently unavailable)
         if (self.args.kk_mode):
-            print("\nRequested KokkosKernels mode, but it is currently unavailable. ", \
-                    "Using default Pytorch layers.\n")
+            if (hvd.rank() == 0):
+                print("\nRequested KokkosKernels mode, but it is currently unavailable. ", \
+                        "Using default Pytorch layers.\n")
             # 3d Convolution
             self.disc3d.add_module("kk_conv_%d" % (0), \
                     nn.Conv3d( \
@@ -592,7 +592,7 @@ class Discriminator3d(nn.Module):
                     bias=False))
 
         self.disc3d.add_module("sigmoid", \
-                nn.Sigmoid())   
+                nn.Sigmoid())
 
     def forward(self, input):
         return self.disc3d(input)
@@ -614,9 +614,10 @@ def weight_init(model):
 class miniGAN:
 
     # Constructor
-    def __init__(self, minigan_args): 
-        print('Hello minigan init\n')
-     
+    def __init__(self, minigan_args):
+        if (hvd.rank() == 0):
+            print('Hello minigan init\n')
+
         self.minigan_args = minigan_args
 
         self.minigan_args.output_interimages_dir = \
@@ -625,7 +626,8 @@ class miniGAN:
         # Load datasets
         self.load_data()
 
-        print('\n---LOAD DATA DONE---\n')
+        if (hvd.rank() == 0):
+            print('\n---LOAD DATA DONE---\n')
 
         # 2D miniGAN
         if (self.minigan_args.dim_mode == 2):
@@ -644,15 +646,17 @@ class miniGAN:
         self.generator.apply(weight_init)
         self.discriminator.apply(weight_init)
 
-        print(self.generator)
-        print(self.discriminator)
+
+        if (hvd.rank() == 0):
+            print(self.generator)
+            print(self.discriminator)
 
         # Metrics and Loss
         self.loss_fn = nn.BCELoss()
 
         self.real_label = 1.0 - self.minigan_args.soft_label
         self.fake_label = self.minigan_args.soft_label
-               
+
         self.gen_optim = optim.Adam( \
                 self.generator.parameters(), \
                 lr=self.minigan_args.gen_lr, \
@@ -685,19 +689,20 @@ class miniGAN:
 #        self.tb_disc.set_model(self.discriminator)
 #        self.tb_comb_gan.set_model(self.combined_gan)
 
-        if (self.minigan_args.profile): 
+        if (self.minigan_args.profile):
             self.profile_layers(self.minigan_args.prof_steps, self.prof_images)
-                
-        print('\n---NETWORK SETUP DONE---\n')
 
-                    
+        if (hvd.rank() == 0):
+            print('\n---NETWORK SETUP DONE---\n')
+
+
     #########################
-    # Load miniGAN Training Data 
+    # Load miniGAN Training Data
     #########################
     def load_data(self):
-        print('\nHello load data\n')
-
-        print('Loading dataset ' + self.minigan_args.dataset + '\n')
+        if (hvd.rank() == 0):
+            print('\nHello load data\n')
+            print('Loading dataset ' + self.minigan_args.dataset + '\n')
 
         # This has been known to cause issues if running on Summit with ddlrun
         # Reduce data_workers to 0 and pin_memory to False
@@ -724,7 +729,7 @@ class miniGAN:
 
             else:
                raise ValueError('\'dim_mode\' must be {2} or {3}.')
-        
+
 
             train_tensor_y = torch.ones([self.minigan_args.num_images, 1], dtype=float)
 
@@ -740,19 +745,20 @@ class miniGAN:
         # Bird Dataset
         elif (self.minigan_args.dataset == "bird"):
             if (self.minigan_args.dim_mode == 2):
-        
+
                 bird_filename = self.minigan_args.data_dir + "/" + \
                         "minigan_bird_%dimgs_%dchnls_%dx%dpx.npy" % \
                         (self.minigan_args.num_images, \
                          self.minigan_args.num_channels, \
                          self.minigan_args.image_dim, \
                          self.minigan_args.image_dim)
-                
+
                 if (not path.exists(bird_filename)):
-                    print("Can not find dataset for file: " + bird_filename + "\nEnsure it exists!")
+                    if (hvd.rank() == 0):
+                        print("Can not find dataset for file: " + bird_filename + "\nEnsure it exists!")
                     exit(0)
- 
-            elif (self.minigan_args.dim_mode == 3): 
+
+            elif (self.minigan_args.dim_mode == 3):
                 bird_filename = self.minigan_args.data_dir + "/" + \
                         "minigan_bird_%dimgs_%dchnls_%dx%dx%dpx.npy" % \
                         (self.minigan_args.num_images, \
@@ -760,9 +766,10 @@ class miniGAN:
                          self.minigan_args.image_dim, \
                          self.minigan_args.image_dim, \
                          self.minigan_args.image_dim)
-                
+
                 if (not path.exists(bird_filename)):
-                    print("Can not find dataset for file: " + bird_filename + "\nEnsure it exists!")
+                    if (hvd.rank() == 0):
+                        print("Can not find dataset for file: " + bird_filename + "\nEnsure it exists!")
                     exit(0)
 
 
@@ -783,40 +790,43 @@ class miniGAN:
 
         else:
             raise ValueError('\'data\' must be {random or bird}.')
-         
+
 
     # Profile layers of Discriminator and Generator
     def profile_layers(self, dummy_runs, p_samples):
-        print('Hello profiler!\n')
+        if (hvd.rank() == 0):
+            print('Hello profiler!\n')
 
         ### Profile Discriminator ###
-        print('\n\n---Profiling Discriminator---\n\n')
+        if (hvd.rank() == 0):
+            print('\n\n---Profiling Discriminator---\n\n')
 
         ### Profile GAN ###
-        print('\n\n---Profiling GAN---\n\n')
+        if (hvd.rank() == 0):
+            print('\n\n---Profiling GAN---\n\n')
 
-        print("In development")
+        if (hvd.rank() == 0):
+            print("In development")
 
         sys.exit("\n\n---Done Profiling. Exiting---\n\n")
-        
+
 
     # Train GAN for one epoch
     def run_epoch(self, current_epoch, num_batches):
-        print('\nHello run epoch\n')
 
         # Disc only timers
         disc_real_forward_time = 0.0
         disc_fake_forward_time = 0.0
 
         # Disc(Gen(noise)) timers
-        gen_disc_fake_forward_time = 0.0     
+        gen_disc_fake_forward_time = 0.0
         gen_fake_forward_time = 0.0
-        
+
         # Gen/Disc autograd timers
         disc_real_backward_time = 0.0
         disc_fake_backward_time = 0.0
         gen_fake_backward_time = 0.0
-        
+
         # Gen/Disc weight update timers
         disc_apply_time = 0.0
         gen_apply_time = 0.0
@@ -826,20 +836,22 @@ class miniGAN:
             batch_iteration = current_epoch * num_batches + batch_idx
             total_batches = self.minigan_args.epochs * num_batches
 
+            current_samples = data.shape[0]
+
             #################################
             # Disc Update, Real Data
             #################################
-           
+
             # Ensure gradients are recorded for the discriminator
             for p in self.discriminator.parameters():
-                p.requires_grad = True 
+                p.requires_grad = True
             self.discriminator.zero_grad()
-            
+
             # Get data and labels to device
             real_device = data.to(self.minigan_args.device)
             b_size = real_device.size(0)
             label = torch.full((b_size,), self.real_label, device=self.minigan_args.device)
-        
+
             # Forward discriminator pass for real data
             tic = timeit.default_timer()
             disc_real_output = self.discriminator(real_device.float()).view(-1)
@@ -858,6 +870,12 @@ class miniGAN:
             # Average discriminator guesses for real data (should go to 1.0)
             disc_real_x = disc_real_output.mean().item()
 
+            # Update discriminator
+            tic = timeit.default_timer()
+            self.disc_optim.step()
+            toc = timeit.default_timer()
+            disc_apply_time += toc - tic
+
 
             #################################
             # Disc Update, Fake Data
@@ -867,14 +885,14 @@ class miniGAN:
             # 2D: (batchsize, nz, 1, 1)
             if(self.minigan_args.dim_mode == 2):
                 noise = torch.randn([ \
-                    self.minigan_args.batch_size // hvd.size(), \
+                    current_samples, \
                     self.minigan_args.gen_noise, 1, 1], \
                     dtype=float, \
                     device=self.minigan_args.device)
             # 3D: (batchsize, nz, 1, 1)
             elif(self.minigan_args.dim_mode == 3):
                 noise = torch.randn([ \
-                    self.minigan_args.batch_size // hvd.size(), \
+                    current_samples, \
                     self.minigan_args.gen_noise, 1, 1, 1], \
                     dtype=float, \
                     device=self.minigan_args.device)
@@ -886,7 +904,7 @@ class miniGAN:
             gen_fake_forward_time += toc - tic
 
             label.fill_(self.fake_label)
-        
+
             # Classify fake images with discriminator
             tic = timeit.default_timer()
             disc_fake_output = self.discriminator(fake_device.detach()).view(-1)
@@ -895,7 +913,7 @@ class miniGAN:
 
             # Calculate loss for fake data
             disc_fake_err = self.loss_fn(disc_fake_output, label)
-            
+
             # Calculate disc gradients for fake images
             tic = timeit.default_timer()
             disc_fake_err.backward()
@@ -930,7 +948,7 @@ class miniGAN:
                 p.requires_grad = False
             self.generator.zero_grad()
 
-            label.fill_(self.real_label) 
+            label.fill_(self.real_label)
 
             tic = timeit.default_timer()
             gen_output = self.discriminator(fake_device).view(-1)
@@ -953,7 +971,7 @@ class miniGAN:
                 g_grad_norm += param_norm.item() ** 2
             g_grad_norm = g_grad_norm ** (1. / 2)
 
-            # Average discriminator guesses for fake data (should go to 0.0) 
+            # Average discriminator guesses for fake data (should go to 0.0)
             gan_fake_x = gen_output.mean().item()
 
             # Update generator
@@ -961,8 +979,8 @@ class miniGAN:
             self.gen_optim.step()
             toc = timeit.default_timer()
             gen_apply_time += toc - tic
-   
-            if (batch_idx % self.minigan_args.log_interval == 0):
+
+            if (batch_idx % self.minigan_args.log_interval == 0 and hvd.rank() == 0):
                 print("\nEpoch %d, Batch %d of %d, \
                        Cumulative Batch %d of %d!!!" % (current_epoch, batch_idx, \
                                                         num_batches, batch_iteration, \
@@ -990,29 +1008,28 @@ class miniGAN:
 
         tot_time = forward_time + backprop_time + apply_time
 
-        print("\n\nProfile for Epoch %d \
-               \nForward Time: \t\t\t%4.4fs, \
-               \nBackprop Time: \t\t\t%4.4fs, \
-               \nApply Time: \t\t\t%4.4fs" % \
-                (current_epoch, forward_time, backprop_time, apply_time))
-        print("\nForward Percent: \t\t%2.2f%%, \
-               \nBackprop Percent: \t\t%2.2f%%, \
-               \nApply Percent: \t\t\t%2.2f%%" % \
-                (100 * forward_time / tot_time, \
-                 100 * backprop_time / tot_time, \
-                 100 * apply_time / tot_time))
-
-        print("\nBreakdowns\n")
+        if (hvd.rank() == 0):
+            print("\n\nProfile for Epoch %d \
+                   \nForward Time: \t\t\t%4.4fs, \
+                   \nBackprop Time: \t\t\t%4.4fs, \
+                   \nApply Time: \t\t\t%4.4fs" % \
+                    (current_epoch, forward_time, backprop_time, apply_time))
+            print("\nForward Percent: \t\t%2.2f%%, \
+                   \nBackprop Percent: \t\t%2.2f%%, \
+                   \nApply Percent: \t\t\t%2.2f%%" % \
+                    (100 * forward_time / tot_time, \
+                     100 * backprop_time / tot_time, \
+                     100 * apply_time / tot_time))
 
         if (self.minigan_args.dim_mode == 2):
-            if (current_epoch == 0): 
+            if (current_epoch == 0):
                 vutils.save_image(real_device, \
                         self.minigan_args.output_interimages_dir + "/real_samples.png", normalize=True)
 
             vutils.save_image(fake_device, self.minigan_args.output_interimages_dir + \
                     "/fake_samples_epoch%d.png" % current_epoch, normalize=True)
         else:
-            if (current_epoch == 0): 
+            if (current_epoch == 0):
                 vutils.save_image(real_device[:,:,:,:,0], \
                         self.minigan_args.output_interimages_dir + "/real_samples.png", normalize=True)
 
@@ -1025,31 +1042,38 @@ class miniGAN:
 
     # RUN
     def run(self):
-        print('Hello Run\n')
+        if (hvd.rank() == 0):
+            print('Hello Run\n')
 
         run_d_loss = []
         run_g_loss = []
 
-        # Make output directories if they do not exist
-        if not os.path.exists(self.minigan_args.output_dir):
-            os.makedirs(self.minigan_args.output_dir)
+        if (hvd.rank() == 0):
+            # Make output directories if they do not exist
+            if not os.path.exists(self.minigan_args.output_dir):
+                os.makedirs(self.minigan_args.output_dir)
 
-        if not os.path.exists(self.minigan_args.output_interimages_dir):
-            os.makedirs(self.minigan_args.output_interimages_dir)
-        
-        print('Epochs: ' + str(self.minigan_args.epochs))
+            if not os.path.exists(self.minigan_args.output_interimages_dir):
+                os.makedirs(self.minigan_args.output_interimages_dir)
+
+        hvd.allreduce(torch.tensor(0), name="barrier")
+
+        if (hvd.rank() == 0):
+            print('Epochs: ' + str(self.minigan_args.epochs))
 
         for epoch in range(self.minigan_args.epochs):
 
-            d_loss, g_loss = self.run_epoch(current_epoch = epoch, 
-                                            num_batches   = self.minigan_args.num_images // self.minigan_args.batch_size // hvd.size())
-             
+            d_loss, g_loss = self.run_epoch(current_epoch = epoch,
+                                            num_batches   = self.minigan_args.num_images // self.minigan_args.batch_size)
+
             run_d_loss.append(d_loss)
             run_g_loss.append(g_loss)
 
         np.save(self.minigan_args.output_dir + '/d_loss_' + str(self.minigan_args.dim_mode) + 'd', run_d_loss)
         np.save(self.minigan_args.output_dir + '/g_loss_' + str(self.minigan_args.dim_mode) + 'd', run_g_loss)
 
-        # Will throw warnings for torch <= 1.3.1
-        torch.save(self.discriminator, self.minigan_args.output_dir + '/discriminator_model')
-        torch.save(self.generator, self.minigan_args.output_dir + '/generator_model')
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # Will throw warnings for torch <= 1.3.1
+            torch.save(self.discriminator, self.minigan_args.output_dir + '/discriminator_model')
+            torch.save(self.generator, self.minigan_args.output_dir + '/generator_model')

@@ -1,7 +1,7 @@
 ##########################################################################
 # ************************************************************************
 #
-#               miniGAN : GAN proxy application 
+#               miniGAN : GAN proxy application
 #                 Copyright 2019 Sandia Corporation
 #
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
@@ -43,8 +43,7 @@ from __future__ import print_function, division
 
 # general imports
 import sys, os
-import logging
-import time, timeit
+import timeit
 import argparse
 
 # data and ml imports
@@ -52,14 +51,8 @@ import numpy as np
 
 # Torch
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torchvision import datasets, transforms
-import torch.utils.data.distributed
 import horovod.torch as hvd
 
-#sys.path.append('./data')
 sys.path.append('./src')
 
 import build_gan
@@ -71,15 +64,11 @@ import build_gan
 
 def main():
 
-    print('\n-----------------------------------------\n')
-    print('**** BEGIN miniGAN PROXY APPLICATION ****')
-    print('\n-----------------------------------------\n')
-    
     main_tic = timeit.default_timer()
 
     ### Command Line Inputs ###
     parser = argparse.ArgumentParser(description='MiniGAN proxy app')
-  
+
     # GENERAL OPTIONS
     parser.add_argument('--dataset', type=str, default="random", metavar='Str',
                         help='which dataset to use from ("random" or "bird") (default: "random")')
@@ -89,14 +78,14 @@ def main():
                         help='use kk convolutions')
 #    parser.add_argument('--input-file', type=str, default="none", metavar='Str',
 #                        help='which input file in ./data/ to use (default: "none")')
-    
+
     # TRAINING OPTIONS
     parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                         help='input batch size for training (default: 64)')
     parser.add_argument('--test-batch-size', type=int, default=64, metavar='N',
                         help='input batch size for testing (default: 64)')
-    parser.add_argument('--epochs', type=int, default=5, metavar='N',
-                        help='number of epochs to train (default: 5)')
+    parser.add_argument('--epochs', type=int, default=20, metavar='N',
+                        help='number of epochs to train (default: 20)')
     parser.add_argument('--disc-lr', type=float, default=0.0002, metavar='LR',
                         help='discriminator learning rate (default: 0.0004)')
     parser.add_argument('--gen-lr', type=float, default=0.0002, metavar='LR',
@@ -120,11 +109,11 @@ def main():
     parser.add_argument('--dg-train-ratio', type=int, default=1, metavar='TR',
                         help='train discriminator N times for each generator \
                               training (default: 1)')
-    
 
-    # NETWORK INPUT OPTIONS 
-    parser.add_argument('--num-images', type=int, default=1024, metavar='N',
-                        help='number of images in training set (default: 1024)')
+
+    # NETWORK INPUT OPTIONS
+    parser.add_argument('--num-images', type=int, default=64, metavar='N',
+                        help='number of images in training set (default: 64)')
     parser.add_argument('--image-dim', type=int, default=64, metavar='N',
                         help='dimensions of images (square/cube) (default: 64)')
     parser.add_argument('--num-channels', type=int, default=1, metavar='N',
@@ -144,7 +133,7 @@ def main():
                         help='stride of discriminator filter kernel (default: 2)')
     parser.add_argument('--disc-padding', type=int, default=1, metavar='N',
                         help='image padding for discriminator convolutions (default: 1)')
-    
+
 
     # GENERATOR OPTIONS
     parser.add_argument('--gen-layers', type=int, default=3, metavar='N',
@@ -183,7 +172,7 @@ def main():
     parser.add_argument('--prof-images', type=int, default=1, metavar='N',
                         help='number of images to profile (default: 1)')
 
-    
+
     # ARCH ENV OPTIONS
     parser.add_argument('--num-threads', type=int, default=32, metavar='N',
                         help='number of threads to use for CPU (default: 32)')
@@ -191,7 +180,7 @@ def main():
                         help='number of gpus available (default: 1)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
-    
+
     # HOROVOD OPTIONS
     parser.add_argument('--fp16-allreduce', action='store_true', default=False,
                         help='use fp16 compression during allreduce')
@@ -200,18 +189,26 @@ def main():
     parser.add_argument('--seed', type=int, default=42, metavar='S',
                         help='random seed (default: 42)')
 
+    # Parse User Arguments
     minigan_args = parser.parse_args()
-    minigan_args.cuda = not minigan_args.no_cuda and torch.cuda.is_available()
 
+
+    minigan_args.cuda = not minigan_args.no_cuda and torch.cuda.is_available()
 
 
     # Input File (if using)
 #    if (minigan_args.input_file != "none")
 #        minigan_args = minigan_read_input(minigan_args)
-    
+
     # Horovod: initialize library.
     hvd.init()
     torch.manual_seed(minigan_args.seed)
+
+    if (hvd.rank() == 0):
+        print('\n-----------------------------------------\n')
+        print('**** BEGIN miniGAN PROXY APPLICATION ****')
+        print('\n-----------------------------------------\n')
+        print('\nRunning with %d ranks\n\n' % hvd.size())
 
     if (minigan_args.batch_size < hvd.size()):
         print("Changing batch_size from %d to %d (number of ranks)" % (minigan_args.batch_size, hvd.size()))
@@ -226,7 +223,7 @@ def main():
         minigan_args.device = "cuda"
     else:
         minigan_args.device = "cpu"
-    
+
     # Print list of command line arguments
     if (hvd.rank() == 0):
         print("Parser Arguments")
@@ -250,8 +247,9 @@ def main():
 
 ###############################################################################
 
-    print('\n---BEGIN SETUP---\n')
-        
+    if (hvd.rank() == 0):
+        print('\n---BEGIN SETUP---\n')
+
     setup_tic = timeit.default_timer()
 
     # build GAN with miniGAN user args
@@ -259,25 +257,28 @@ def main():
 
     setup_toc = timeit.default_timer()
 
-    print('\n---SETUP DONE---\n')
+    if (hvd.rank() == 0):
+        print('\n---SETUP DONE---\n')
 
 ###############################################################################
-    
-    print('\n---BEGIN TRAINING---\n')
-        
+
+    if (hvd.rank() == 0):
+        print('\n---BEGIN TRAINING---\n')
+
     run_tic = timeit.default_timer()
 
     ###############
     ### GAN RUN ###
     ###############
-    
+
     GAN.run()
 
     ###############
 
     run_toc = timeit.default_timer()
 
-    print('\n---TRAINING DONE---\n')
+    if (hvd.rank() == 0):
+        print('\n---TRAINING DONE---\n')
 
 
 
@@ -285,25 +286,27 @@ def main():
 
     ### FINISH ###
 
-    print('-----DONE-----')
+    if (hvd.rank() == 0):
+        print('-----DONE-----')
 
     main_toc = timeit.default_timer()
 
-    print("\n\n-------------------\n",
-          "miniGAN Setup Time: ", 
-          setup_toc - setup_tic, 
-          "\n-------------------\n")
+    if (hvd.rank() == 0):
+        print("\n\n-------------------\n",
+            "miniGAN Setup Time: ",
+            setup_toc - setup_tic,
+            "\n-------------------\n")
 
-    print("\n-------------------\n",
-          "miniGAN Training Time: ", 
-          run_toc - run_tic, 
-          "\n-------------------\n")
+        print("\n-------------------\n",
+            "miniGAN Training Time: ",
+            run_toc - run_tic,
+            "\n-------------------\n")
 
-    print("\n-------------------\n",
-          "miniGAN Total Runtime: ", 
-          main_toc - main_tic, 
-          "\n-------------------\n")
+        print("\n-------------------\n",
+            "miniGAN Total Runtime: ",
+            main_toc - main_tic,
+            "\n-------------------\n")
 
-### RUN ###
+## RUN ###
 if __name__ == "__main__":
     main()
