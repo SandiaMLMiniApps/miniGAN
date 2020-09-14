@@ -17,7 +17,7 @@ miniGAN is a proxy application for generative adversarial networks.
 The objective of the miniGAN miniapp is to model performance for training 
 generator and discriminator networks.
 The GAN's generator and discriminator generate plausible 2D/3D maps and identify fake maps, respectively. 
-Related applications exist in cosmology (CosmoFlow, ExaGAN) and wind energy (ExaWind).
+Related applications exist in cosmology (CosmoGAN, ExaGAN) and wind energy (ExaWind).
 
 Authors: J. Austin Ellis (johelli@sandia.gov) and Siva Rajamanickam (srajama@sandia.gov)
 
